@@ -46,7 +46,7 @@ namespace AllWaze.Controllers
         {
             using (var client = new WebClient())
             {
-                var url = $"https://www.rome2rio.com/s/{origin}/{dest}";
+                var url = $"https://www.rome2rio.com/s/{origin}/{dest}".Replace(" ", "-");
                 var htmlCode = client.DownloadString(url);
                 var regex = new Regex("<meta id='metadescription' content='(?<metadescription>.+)' name.+");
                 var match = regex.Match(htmlCode).Groups["metadescription"];

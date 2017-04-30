@@ -20,18 +20,22 @@ namespace AllWaze.Controllers
 
         // GET / for authenitication
         [HttpGet]
-        public IHttpActionResult Get()
+        public HttpResponseMessage Get()
         {
             var qvPairs = Request.GetQueryNameValuePairs().ToDictionary(x => x.Key, x => x.Value);
 
-            if (qvPairs["hub_mode"] == "subscribe" &&
+            if (qvPairs["hub.mode"] == "subscribe" &&
                 qvPairs["hub.verify_token"] == "tuxedo_monkey")
             {
-                return Content(HttpStatusCode.Accepted , qvPairs["hub.challenge"]);
+                var resp = new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(qvPairs["hub.challenge"], Encoding.UTF8, "text/plain")
+                };
+                return resp;
             }
             else
             {
-                return Content(HttpStatusCode.Unauthorized, "Not Authorized!");
+                return new HttpResponseMessage(HttpStatusCode.Unauthorized);
             }
         }
 
@@ -47,6 +51,7 @@ namespace AllWaze.Controllers
             {
                 foreach (dynamic eve in (JArray)entry.messaging)
                 {
+                    SendTypingNotification((string) eve.sender.id);
                     await SendMessage((string)eve.message.text, (string)eve.sender.id);
                 }
 
@@ -61,6 +66,21 @@ namespace AllWaze.Controllers
             message = aiResponse.Result.Fulfillment.Speech;
 
             var json = $"{{'recipient': {{ 'id': '{sender}' }}, 'message': {{ 'text': '{message}' }} }}";
+
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using (var client = new HttpClient())
+            {
+                var requestUri = $"https://graph.facebook.com/v2.6/me/messages?access_token={PageToken}";
+                var response = await client.PostAsync(requestUri, content);
+            }
+        }
+
+        private static async Task SendTypingNotification(string sender)
+        {
+
+            var json = $"{{'recipient': {{ 'id': '{sender}' }}, 'sender_action': 'typing_on'}}";
 
 
             var content = new StringContent(json, Encoding.UTF8, "application/json");
