@@ -12,6 +12,12 @@ namespace AllWaze
             // Web API configuration and services
 
             // Web API routes
+
+            var json = config.Formatters.JsonFormatter;
+            json.SerializerSettings.PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects;
+            config.Formatters.Remove(config.Formatters.XmlFormatter);
+            json.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
+
             config.MapHttpAttributeRoutes();
 
             config.Routes.MapHttpRoute(
