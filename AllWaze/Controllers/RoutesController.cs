@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Web.Http;
+using AllWaze.Objects;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -15,6 +14,8 @@ namespace AllWaze.Controllers
     [Route("routes")]
     public class RoutesController : ApiController
     {
+        private const string R2RApiKey = "ZnzQK7bo";
+
         [HttpPost]
         public IHttpActionResult Post()
         {
@@ -25,10 +26,14 @@ namespace AllWaze.Controllers
             if ((string) json.result.action == "routes")
             {
                 var parameters = json.result.parameters;
-                var origin = (string )parameters["origin"];
-                var dest = (string )parameters["destination"];
+                var origin = (string) parameters["origin"];
+                var dest = (string)parameters["destination"];
 
-                var message = GetDescription(origin, dest);
+                var routes = ConstructRouteObjects(origin, dest);
+                var message = ConstructJsonFromRoutes(routes);
+
+                //var message = GetDescription(origin, dest);
+
 
                 var returnJson = new JObject(
                         new JProperty("speech", message),
@@ -54,9 +59,124 @@ namespace AllWaze.Controllers
             }
         }
 
+        private IEnumerable<Route> ConstructRouteObjects(string origin, string dest)
+        {
+            var url = $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dName={dest}";
+            var routesList = new List<Route>();
+            JObject responseJson;
+
+            using (var client = new WebClient())
+            {
+                var response = client.DownloadString(url);
+                responseJson = JObject.Parse(response);
+            }
+
+            var routes = (JArray) responseJson["routes"];
+            foreach (JObject route in routes)
+            {
+                var indicativePrices = route["indicativePrices"] as JArray;
+                var majorSegment = (JObject)((JArray) route["segments"]).OrderByDescending(s => (int) s["distance"]).First();
+
+                var name = (string) route["name"];
+                var pLow = indicativePrices != null ? (int?) indicativePrices[0]["priceLow"]: 0;
+                var pHigh = indicativePrices != null ? (int?) indicativePrices[0]["priceHigh"] : 0;
+                var duration = (int) route["totalDuration"];
+                var image = ((string) majorSegment["segmentKind"]).Equals("surface")
+                    ? FetchAgencyImage(majorSegment, responseJson["agencies"] as JArray)
+                    : FetchAirlineImage(majorSegment, responseJson["airlines"] as JArray);
+
+
+                routesList.Add(new Route(name, pLow ?? 0, pHigh ?? 0, duration, image));
+            }
+
+            return routesList.OrderBy(r => r.Duration).Take(Math.Min(routesList.Count, 6)); //Arbitrary number of results to return
+        }
+
+        private string FetchAgencyImage(JObject majorSegment, JArray agencies)
+        {
+            var segmentAgencies = majorSegment["agencies"] as JArray;
+            if (segmentAgencies == null) return string.Empty;
+
+            var index = (int)segmentAgencies.ElementAt(0)["agency"];
+            var agencyName = (string) agencies.ElementAt(index)["name"];
+            using (var client = new WebClient())
+            {
+                var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={agencyName}"));
+                return companiesArray.Any()
+                    ? (string) companiesArray[0]["logo"]
+                    : (string) agencies.ElementAt(index)["icon"]["url"];
+
+            }
+        }
+
+        private string FetchAirlineImage(JObject majorSegment, JArray airlines)
+        {
+            var hops = (JArray)((JArray) majorSegment["outbound"]).ElementAt(0)["hops"];
+            var index = (int) hops.ElementAt(0)["airline"];
+            var airlineName = (string) airlines.ElementAt(index)["name"];
+
+            using (var client = new WebClient())
+            {
+                var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={airlineName}"));
+                return companiesArray.Any()
+                    ? (string)companiesArray[0]["logo"]
+                    : (string) airlines.ElementAt(index)["icon"]["url"];
+
+            }
+        }
+
+        private string ConstructJsonFromRoutes(IEnumerable<Route> routes){
+            var routesList = routes.ToList();
+
+            var elementsJson = new JArray();
+            foreach(var route in routesList)
+            {
+                var defaultAction = new JObject(
+                    new JProperty("type", "web_url"),
+                    new JProperty("url", "https://www.rome2rio.com"),
+                    new JProperty("webview_height_ratio", "compact")
+                );
+
+                var buttons = new JArray
+                {
+                    new JObject(new JProperty("type", "web_url"), 
+                    new JProperty("url", "https://www.rome2rio.com"),
+                    new JProperty("title", "View Website"))
+                };
+
+                var element = new JObject(
+                    new JProperty("title", route.Name),
+                    new JProperty("image_url", route.Image),
+                    new JProperty("subtitle", $"Price: {route.PriceLow} - {route.PriceHigh}; Duration: {route.Duration} minutes"),
+                    new JProperty("default_action", defaultAction),
+                    new JProperty("buttons", buttons)
+                );
+
+
+                elementsJson.Add(element);
+            }
+            var payload = new JObject(
+                new JProperty("template_type", "generic"),
+                new JProperty("elements", elementsJson)
+            );
+
+            var attachment = new JObject(
+                new JProperty("type", "template"),
+                new JProperty("payload", payload)
+            );
+
+            var returnJson = new JObject(
+                new JProperty("attachment", attachment)    
+            );
+
+            return returnJson.ToString(Formatting.None);
+        }
+
+
         [HttpGet]
         public IHttpActionResult Get()
         {
+            //Use this for testing purposes ~ make sure the web server is up. 
             return Content(HttpStatusCode.OK, "Hey there!");
 
         }

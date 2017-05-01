@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -64,8 +65,17 @@ namespace AllWaze.Controllers
         {
             var aiResponse = ApiAi.TextRequest(message);
             message = aiResponse.Result.Fulfillment.Speech;
+            var source = aiResponse.Result.Fulfillment.Source;
 
-            var json = $"{{'recipient': {{ 'id': '{sender}' }}, 'message': {{ 'text': '{message}' }} }}";
+            if (string.IsNullOrWhiteSpace(message) || message.StartsWith("Discover how to get anywhere by searching", StringComparison.InvariantCultureIgnoreCase))
+                message = "I am sorry, I could not resolve your query. :( Please check your input and try again.";
+
+            
+
+            var json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {{ \"text\": \"{message}\" }} }}";
+
+            
+            if (source != null && source.Equals("routes")) json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {message} }}";
 
 
             var content = new StringContent(json, Encoding.UTF8, "application/json");
