@@ -16,6 +16,10 @@ namespace AllWaze.Objects
         public Route(string name, int pLow, int pHigh, int duration, string image)
         {
             this.Name = name;
+            if (this.Name.IndexOf("fly", StringComparison.CurrentCultureIgnoreCase) >= 0) Name += " ✈️";
+            if (this.Name.IndexOf("train", StringComparison.CurrentCultureIgnoreCase) >= 0) Name += " 🚆";
+            if (this.Name.IndexOf("bus", StringComparison.CurrentCultureIgnoreCase) >= 0) Name += " 🚌";
+            if (this.Name.IndexOf("drive", StringComparison.CurrentCultureIgnoreCase) >= 0) Name += " 🚗";
             this.PriceLow = pLow;
             this.PriceHigh = pHigh;
             this.Duration = duration;
