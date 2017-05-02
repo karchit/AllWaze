@@ -134,7 +134,7 @@ namespace AllWaze.Controllers
                 var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={airlineName}"));
                 return companiesArray.Any()
                     ? (string)companiesArray[0]["logo"] + "?size=220"
-                    : $"http://pics.avs.io/220/200/{airlineCode}.png";
+                    : $"http://pics.avs.io/200/200/{airlineCode}.png";
 
             }
         }
