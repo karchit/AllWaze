@@ -127,13 +127,14 @@ namespace AllWaze.Controllers
             var hops = (JArray)((JArray) majorSegment["outbound"]).ElementAt(0)["hops"];
             var index = (int) hops.ElementAt(0)["airline"];
             var airlineName = (string) airlines.ElementAt(index)["name"];
+            var airlineCode = (string) airlines.ElementAt(index)["code"];
 
             using (var client = new WebClient())
             {
                 var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={airlineName}"));
                 return companiesArray.Any()
                     ? (string)companiesArray[0]["logo"] + "?size=220"
-                    : "http://pics.avs.io/220/200/{airlines.ElementAt(index)[\"code\"]}.png";
+                    : $"http://pics.avs.io/220/200/{airlineCode}.png";
 
             }
         }
