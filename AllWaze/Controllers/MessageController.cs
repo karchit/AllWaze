@@ -52,7 +52,7 @@ namespace AllWaze.Controllers
             {
                 foreach (dynamic eve in (JArray)entry.messaging)
                 {
-                    SendTypingNotification((string) eve.sender.id);
+                    await SendTypingNotification((string) eve.sender.id);
                     await SendMessage((string)eve.message.text, (string)eve.sender.id);
                 }
 
@@ -70,13 +70,9 @@ namespace AllWaze.Controllers
             if (string.IsNullOrWhiteSpace(message) || message.StartsWith("Discover how to get anywhere by searching", StringComparison.InvariantCultureIgnoreCase))
                 message = "I am sorry, I could not resolve your query. :( Please check your input and try again.";
 
-            
-
             var json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {{ \"text\": \"{message}\" }} }}";
-
-            
-            if (source != null && source.Equals("routes")) json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {message} }}";
-
+                       
+            if (source != null && source.Equals("routes") && !message.StartsWith("I am sorry")) json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {message} }}";
 
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 

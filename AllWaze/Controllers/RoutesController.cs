@@ -29,6 +29,7 @@ namespace AllWaze.Controllers
                 var origin = (string) parameters["origin"];
                 var dest = (string)parameters["destination"];
 
+                if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(dest)) return Ok();
                 var routes = ConstructRouteObjects(origin, dest);
                 var message = ConstructJsonFromRoutes(routes);
 
@@ -43,7 +44,7 @@ namespace AllWaze.Controllers
                 return Json(returnJson);
             }
 
-            return InternalServerError();
+            return Ok();
             
         }
 
@@ -72,6 +73,7 @@ namespace AllWaze.Controllers
             }
 
             var routes = (JArray) responseJson["routes"];
+
             foreach (JObject route in routes)
             {
                 var indicativePrices = route["indicativePrices"] as JArray;
@@ -81,15 +83,16 @@ namespace AllWaze.Controllers
                 var pLow = indicativePrices != null ? (int?) indicativePrices[0]["priceLow"]: 0;
                 var pHigh = indicativePrices != null ? (int?) indicativePrices[0]["priceHigh"] : 0;
                 var duration = (int) route["totalDuration"];
+
                 var image = ((string) majorSegment["segmentKind"]).Equals("surface")
                     ? FetchAgencyImage(majorSegment, responseJson["agencies"] as JArray)
                     : FetchAirlineImage(majorSegment, responseJson["airlines"] as JArray);
 
 
-                routesList.Add(new Route(name, pLow ?? 0, pHigh ?? 0, duration, image));
+                routesList.Add(new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(image) && name.Contains("Drive") ? "http://i.imgur.com/wYESJaW.jpg" : image));
             }
 
-            return routesList.OrderBy(r => r.Duration).Take(Math.Min(routesList.Count, 6)); //Arbitrary number of results to return
+            return routesList.OrderBy(r => r.Duration).Take(Math.Min(routesList.Count, 6)); // Return maximum of 6 routes. 
         }
 
         private string FetchAgencyImage(JObject majorSegment, JArray agencies)
@@ -98,15 +101,25 @@ namespace AllWaze.Controllers
             if (segmentAgencies == null) return string.Empty;
 
             var index = (int)segmentAgencies.ElementAt(0)["agency"];
-            var agencyName = (string) agencies.ElementAt(index)["name"];
+            var agencyUrl = new Uri((string) agencies.ElementAt(index)["url"]).Host.Replace("www.", "");
+            agencyUrl = FixAgencyUrls(agencyUrl);
+
             using (var client = new WebClient())
             {
-                var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={agencyName}"));
+                var url = $"https://autocomplete.clearbit.com/v1/companies/suggest?query={agencyUrl}";
+
+                var companiesArray = JArray.Parse(client.DownloadString(url));
+
                 return companiesArray.Any()
-                    ? (string) companiesArray[0]["logo"]
-                    : (string) agencies.ElementAt(index)["icon"]["url"];
+                    ? (string) companiesArray[0]["logo"] + "?size=220"
+                    : "www.rome2rio.com/" + (string) agencies.ElementAt(index)["icon"]["url"];
 
             }
+        }
+
+        private string FixAgencyUrls(string agencyUrl)
+        {
+            return agencyUrl.Contains("bahn.com") ? "bahn.de" : agencyUrl;
         }
 
         private string FetchAirlineImage(JObject majorSegment, JArray airlines)
@@ -119,8 +132,8 @@ namespace AllWaze.Controllers
             {
                 var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={airlineName}"));
                 return companiesArray.Any()
-                    ? (string)companiesArray[0]["logo"]
-                    : (string) airlines.ElementAt(index)["icon"]["url"];
+                    ? (string)companiesArray[0]["logo"] + "?size=220"
+                    : "www.rome2rio.com/"  + (string) airlines.ElementAt(index)["icon"]["url"];
 
             }
         }
@@ -147,7 +160,7 @@ namespace AllWaze.Controllers
                 var element = new JObject(
                     new JProperty("title", route.Name),
                     new JProperty("image_url", route.Image),
-                    new JProperty("subtitle", $"Price: {route.PriceLow} - {route.PriceHigh}; Duration: {route.Duration} minutes"),
+                    new JProperty("subtitle", $"Price: {route.PriceLow} - {route.PriceHigh}\nDuration: {route.Duration} minutes"),
                     new JProperty("default_action", defaultAction),
                     new JProperty("buttons", buttons)
                 );
@@ -157,6 +170,7 @@ namespace AllWaze.Controllers
             }
             var payload = new JObject(
                 new JProperty("template_type", "generic"),
+                new JProperty("image_aspect_ratio", "square"),
                 new JProperty("elements", elementsJson)
             );
 
