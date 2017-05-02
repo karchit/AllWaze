@@ -89,7 +89,7 @@ namespace AllWaze.Controllers
                     : FetchAirlineImage(majorSegment, responseJson["airlines"] as JArray);
 
 
-                routesList.Add(new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(image) && name.Contains("Drive") ? "http://i.imgur.com/wYESJaW.jpg" : image));
+                routesList.Add(new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(image) && name.Contains("Drive") ? "http://i.imgur.com/PfC7OYk.jpg" : image));
             }
 
             return routesList.OrderBy(r => r.Duration).Take(Math.Min(routesList.Count, 6)); // Return maximum of 6 routes. 
