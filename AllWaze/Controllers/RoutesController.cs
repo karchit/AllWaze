@@ -131,6 +131,7 @@ namespace AllWaze.Controllers
 
             using (var client = new WebClient())
             {
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
                 var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={airlineName}"));
                 return companiesArray.Any()
                     ? (string)companiesArray[0]["logo"] + "?size=220"

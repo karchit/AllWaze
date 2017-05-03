@@ -15,7 +15,7 @@ namespace AllWaze.Controllers
     [Route("")]
     public class MessageController : ApiController
     {
-        private const string PageToken = "EAADm6heZBUeUBAAwA6Y2eagDmIc753LA3udfZCWND1yFVgAGga4TtvC3o2Be7mZBNXcZBlJllbzDjVeZAa853hGT2y8g2ZBhmR94RPSvj0rHwTJf0bX1rbBCz7ajVJEjQ0NYXZBq2oSX9tk5iRpPvrdwZBGDda0DR3KriejGHqXaMAZDZD";
+        private const string PageToken = "EAAJAGkvnH9ABALTZAvF0M7KYZBggviyWKZBkJobMwVIK1zZAZCZC9NnQVxEOwKuAtrjhfWBZAIhgGoZC2tsgLEjamuWIgbnFoZCYMfQoq23AuwmIjH9mbxYZAkmN7MK1VPqeZAG0MmybvAHJj0GgZBKZCPQ9QFkKRI2ZAqK06iC3bs4JzfzAZDZD";
         private static readonly AIConfiguration Config = new AIConfiguration("b889778ac1e84e2885120a47fdec9809", SupportedLanguage.English);
         private static readonly ApiAi ApiAi = new ApiAi(Config);
 
