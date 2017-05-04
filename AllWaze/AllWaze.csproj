@@ -95,7 +95,7 @@
   <ItemGroup>
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\MessageController.cs" />
-    <Compile Include="Controllers\RoutesController.cs" />
+    <Compile Include="Controllers\IntentsController.cs" />
     <Compile Include="App_Data\FBUser.designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

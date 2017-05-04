@@ -12,8 +12,8 @@ using Newtonsoft.Json.Linq;
 
 namespace AllWaze.Controllers
 {
-    [Route("routes")]
-    public class RoutesController : ApiController
+    [Route("intents")]
+    public class IntentsController : ApiController
     {
         [HttpPost]
         public IHttpActionResult Post()
@@ -22,16 +22,22 @@ namespace AllWaze.Controllers
             var body = new StreamReader(req).ReadToEnd();
             dynamic json = JsonConvert.DeserializeObject(body);
 
+            var parameters = json.result.parameters;
+            var userId = (string)json.sessionId;
+            var userHandler = new UserHandler();
+
             if ((string) json.result.action == "routes")
             {
-                var parameters = json.result.parameters;
                 var origin = (string) parameters["origin"];
                 var dest = (string)parameters["destination"];
+                var currency = userHandler.GetCurrency(userId);
+                string currencyCulture;
+                Currency.currencies.TryGetValue(currency, out currencyCulture);
 
                 if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(dest)) return Ok();
 
-                var routes = RoutesHandler.ConstructRouteObjects(origin, dest);
-                var message = RoutesHandler.ConstructJsonFromRoutes(routes);
+                var routes = RoutesHandler.ConstructRouteObjects(origin, dest, currency);
+                var message = RoutesHandler.ConstructJsonFromRoutes(routes, currencyCulture);
 
                 //var message = GetDescription(origin, dest);
 
@@ -45,11 +51,9 @@ namespace AllWaze.Controllers
             }
             else if ((string) json.result.action == "setCurrency")
             {
-                var parameters = json.result.parameters;
                 var currency = (string)parameters["currency"];
                 
-                var userHandler = new UserHandler();
-                var newCurrency = userHandler.SetCurrency((string) json.sessionId, currency);
+                var newCurrency = userHandler.SetCurrency(userId, currency);
 
                 var message = !string.IsNullOrEmpty(newCurrency)
                     ? $"Currency updated to {newCurrency}"

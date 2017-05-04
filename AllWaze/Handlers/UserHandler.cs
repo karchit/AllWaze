@@ -39,5 +39,11 @@ namespace AllWaze.Handlers
             _db.SubmitChanges();
             return user.Currency;
         }
+
+        public string GetCurrency(string id)
+        {
+            var user = GetUser(id);
+            return user != null ? user.Currency : "USD";
+        }
     }
 }
