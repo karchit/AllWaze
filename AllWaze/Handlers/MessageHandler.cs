@@ -19,6 +19,26 @@ namespace AllWaze.Handlers
 
         public static string SenderId = string.Empty;
 
+        public static async Task SendAttachment(string message)
+        {
+            var recepient = new JObject(
+                new JProperty("id", SenderId));
+            var json = new JObject(
+                new JProperty("recipient", recepient),
+                new JProperty("message", message)
+            );
+            //var json = $"{{\"recipient\": {{ \"id\": \"{SenderId}\" }}, \"message\": {{ \"text\": \"{message}\" }} }}";
+
+            var s = json.ToString(Formatting.None);
+            var content = new StringContent(s, Encoding.UTF8, "application/json");
+
+            using (var client = new HttpClient())
+            {
+                var response = await client.PostAsync(MessageEndPoint, content);
+            }
+
+        }
+
         public static async Task SendTextMessage(string message)
         {
             var json = $"{{\"recipient\": {{ \"id\": \"{SenderId}\" }}, \"message\": {{ \"text\": \"{message}\" }} }}";

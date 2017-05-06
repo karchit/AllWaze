@@ -15,7 +15,7 @@ namespace AllWaze.Handlers
 {
     public static class LocationsHandler
     {
-        private static readonly string MessageEndPoint = "http://maps.google.com/maps/api/geocode/json?latlng={0}&sensor=false";
+        private static string MessageEndPoint = "http://maps.google.com/maps/api/geocode/json?latlng={0}&sensor=false";
         private static readonly UserHandler db = new UserHandler();
 
         public static void UpdateUserLocation(string id, string location)

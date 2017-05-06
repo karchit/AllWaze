@@ -19,13 +19,14 @@ namespace AllWaze.Handlers
 
         private const string R2RApiKey = "ZnzQK7bo";
 
+        public static string StaticMapUrl = "https://maps.googleapis.com/maps/api/staticmap?size=400x400&zoom=11&path=weight:3%7Ccolor:red%7Cenc:{0}&key=AIzaSyDsomY_YAoIgKjxhgrHdWLDtBiJBhAd6eU";
 
         public static void EntryPoint(JToken postback)
         {
             var parsedPostBack = JObject.Parse((string)postback);
+            var userId = (string)parsedPostBack["recipient"]["id"];
             if ((string) parsedPostBack["intent"] == "SegmentInfo")
             {
-                var userId = (string)parsedPostBack["recipient"]["id"];
                 var currency = new UserHandler().GetCurrency(userId) ?? "USD";
                 string currencyCulture;
                 Currency.currencies.TryGetValue(currency, out currencyCulture);
@@ -52,6 +53,24 @@ namespace AllWaze.Handlers
                     MessageHandler.SendCustomMessage(message);
                 }
             }
+            else if ((string) parsedPostBack["intent"] == "SendMap")
+            {
+                var url = (string)parsedPostBack["MapUrl"];
+
+                var p = new JObject(
+                    new JProperty("url", url)
+                    );
+                var att = new JObject(
+                    new JProperty("type", "image"),
+                    new JProperty("payload", p)
+                    );
+                var message = new JObject(
+                        new JProperty("attachment", att)
+                    );
+                MessageHandler.SenderId = userId;
+                MessageHandler.SendAttachment(message.ToString(Formatting.None));
+
+            }
         }
 
         private static string ConstructSegmentJson(IEnumerable<Segment> segments, string currency)
@@ -77,12 +96,16 @@ namespace AllWaze.Handlers
                     var buttons = new JArray();
 
                     var surSegment = (SurfaceSegment) segment;
-                    buttons.Add(new JObject(
-                        new JProperty("type", "web_url"),
-                        new JProperty("url", surSegment.BookUrl),
-                        new JProperty("title", "Go To Agency Page")
-                        )
+                    if (string.IsNullOrEmpty(surSegment.ScheduleUrl) || string.IsNullOrEmpty(surSegment.MapUrl)
+                        || string.IsNullOrEmpty(surSegment.PhoneNumber))
+                    {
+                        buttons.Add(new JObject(
+                            new JProperty("type", "web_url"),
+                            new JProperty("url", surSegment.BookUrl),
+                            new JProperty("title", "Go To Agency Page")
+                            )
                         );
+                    }
                     if (!string.IsNullOrEmpty(surSegment.ScheduleUrl))
                     {
                         buttons.Add(new JObject(
@@ -91,6 +114,24 @@ namespace AllWaze.Handlers
                             new JProperty("title", "Go To Booking Page")
                             )
                         );
+                    }
+                    if (!string.IsNullOrEmpty(surSegment.MapUrl))
+                    {
+                        dynamic recipient = new JObject();
+                        recipient.id = MessageHandler.SenderId;
+
+                        dynamic payLoad = new JObject();
+                        payLoad.recipient = recipient;
+                        payLoad.intent = "SendMap";
+                        payLoad.MapUrl = surSegment.MapUrl;
+
+                        var p = payLoad.ToString();
+
+                        //var p = $"\"payload\":{{\"recipient\" : {{\"id\" : \"{{{MessageHandler.SenderId}}}\"}},\"intent\":\"SegmentInfo\", \"origin\":\"{origin}\", \"destination\":\"{dest}\", \"routeName\":\"{route.Name}\"}}";
+                        var button = new JObject(new JProperty("type", "postback"),
+                            new JProperty("title", "Show Map"),
+                            new JProperty("payload", p));
+                        buttons.Add(button);
                     }
                     if (!string.IsNullOrEmpty(surSegment.PhoneNumber))
                     {
@@ -330,7 +371,9 @@ namespace AllWaze.Handlers
 
             var from = (string)((JObject)places.ElementAt((int)segment["depPlace"]))["shortName"];
             var to = (string)((JObject)places.ElementAt((int)segment["arrPlace"]))["shortName"];
-            var latlongs = Decode((string)segment["path"]);
+            var latlongs = (string)segment["path"];
+            var mapUrl = "";
+            if (!string.IsNullOrEmpty(latlongs)) mapUrl = string.Format(StaticMapUrl, latlongs);
 
             pLow = pLow ?? 0;
             pHigh = pHigh ?? 0;
@@ -340,7 +383,7 @@ namespace AllWaze.Handlers
                 price = indicativePrices != null ? (int?)indicativePrices[0]["price"] : 0;
             }
 
-            return new SurfaceSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, image.Item2, defaultUrl, bookUrl, scheUrl, phone, "", kind, price ?? 0);
+            return new SurfaceSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, image.Item2, defaultUrl, bookUrl, scheUrl, phone, mapUrl, kind, price ?? 0);
         }
 
         private static Segment HandleAirSegment(JObject segment, JArray airlines, JArray places, JArray vehicles)
