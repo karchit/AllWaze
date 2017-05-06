@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Http;
+using AllWaze.Handlers;
 using ApiAiSDK;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -15,7 +16,7 @@ namespace AllWaze.Controllers
     [Route("")]
     public class MessageController : ApiController
     {
-        private const string PageToken = "EAAJAGkvnH9ABALTZAvF0M7KYZBggviyWKZBkJobMwVIK1zZAZCZC9NnQVxEOwKuAtrjhfWBZAIhgGoZC2tsgLEjamuWIgbnFoZCYMfQoq23AuwmIjH9mbxYZAkmN7MK1VPqeZAG0MmybvAHJj0GgZBKZCPQ9QFkKRI2ZAqK06iC3bs4JzfzAZDZD";
+        private const string PageToken = "EAAEZCJ5a9RvkBAOimeVfFotC57ZC67x0e6gXVqfRqejNtzmaPMgvnhFgZCE8ZBqqbKC1qhE2uRvPcdlqdBlqlZCMFjQbpwZCdaV0JugAggp5fzZAITlodw83kMBJMs3sTpng8aTCcZBvNpQvNcF8aOcN056mxZChXMbhpkClovNktBQZDZD";
         private static readonly AIConfiguration Config = new AIConfiguration("b889778ac1e84e2885120a47fdec9809", SupportedLanguage.English);
         private static readonly ApiAi ApiAi = new ApiAi(Config);
 
@@ -52,7 +53,7 @@ namespace AllWaze.Controllers
             {
                 foreach (dynamic eve in (JArray)entry.messaging)
                 {
-                    await SendTypingNotification((string) eve.sender.id);
+                    await MessageHandler.SendTypingNotification((string) eve.sender.id);
                     await SendMessage((string)eve.message.text, (string)eve.sender.id);
                 }
 
@@ -63,41 +64,19 @@ namespace AllWaze.Controllers
 
         private static async Task SendMessage(string message, string sender)
         {
+            MessageHandler.SenderId = sender;
+
             var aiResponse = ApiAi.TextRequest(message);
             message = aiResponse.Result.Fulfillment.Speech;
-            var source = aiResponse.Result.Fulfillment.Source;
-            var intentName = aiResponse.Result.Metadata.IntentName;
+            var intentName = aiResponse.Result.Action;
 
-            if (string.IsNullOrWhiteSpace(message) || message.StartsWith("Discover how to get anywhere by searching", StringComparison.InvariantCultureIgnoreCase))
-                message = "I am sorry, I could not resolve your query. :( Please check your input and try again.";
+            if (string.IsNullOrWhiteSpace(message)) message = "I am sorry, I could not resolve your query. :( Please check your input and try again.";
 
-            var json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {{ \"text\": \"{message}\" }} }}";
-                       
-            if (intentName != null && intentName.Equals("Route lookup") && !message.StartsWith("I am sorry"))
-                json = $"{{\"recipient\": {{ \"id\": \"{sender}\" }}, \"message\": {message} }}";
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            using (var client = new HttpClient())
+            if (intentName != null && intentName.StartsWith("smalltalk."))
             {
-                var requestUri = $"https://graph.facebook.com/v2.6/me/messages?access_token={PageToken}";
-                var response = await client.PostAsync(requestUri, content);
+                await MessageHandler.SendTextMessage(message);
             }
         }
 
-        private static async Task SendTypingNotification(string sender)
-        {
-
-            var json = $"{{'recipient': {{ 'id': '{sender}' }}, 'sender_action': 'typing_on'}}";
-
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            using (var client = new HttpClient())
-            {
-                var requestUri = $"https://graph.facebook.com/v2.6/me/messages?access_token={PageToken}";
-                var response = await client.PostAsync(requestUri, content);
-            }
-        }
     }
 }

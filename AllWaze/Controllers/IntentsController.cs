@@ -28,26 +28,15 @@ namespace AllWaze.Controllers
 
             if ((string) json.result.action == "routes")
             {
-                var origin = (string) parameters["origin"];
+                var origin = (string)parameters["origin"];
                 var dest = (string)parameters["destination"];
                 var currency = userHandler.GetCurrency(userId);
                 string currencyCulture;
                 Currency.currencies.TryGetValue(currency, out currencyCulture);
 
-                if (string.IsNullOrWhiteSpace(origin) || string.IsNullOrWhiteSpace(dest)) return Ok();
+                RoutesHandler.EntryPoint(origin, dest, currencyCulture ?? "chr-Cher-US");
 
-                var routes = RoutesHandler.ConstructRouteObjects(origin, dest, currency);
-                var message = RoutesHandler.ConstructJsonFromRoutes(routes, currencyCulture);
-
-                //var message = GetDescription(origin, dest);
-
-
-                var returnJson = new JObject(
-                        new JProperty("speech", message),
-                        new JProperty("displayText", message),
-                        new JProperty("source", "routes")
-                    );
-                return Json(returnJson);
+                return Ok();
             }
             else if ((string) json.result.action == "setCurrency")
             {
@@ -59,13 +48,9 @@ namespace AllWaze.Controllers
                     ? $"Currency updated to {newCurrency}"
                     : $"Sorry but {currency} is not currently supported :/. Try again with another one.";
 
-                var returnJson = new JObject(
-                    new JProperty("speech", message),
-                    new JProperty("displayText", message),
-                    new JProperty("source", "routes")
-                    );
-
-                return Json(returnJson);
+                MessageHandler.SendTextMessage(message);
+                
+                return Ok();
 
             }
 

@@ -3,17 +3,30 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Web;
-using AllWaze.Controllers;
-using AllWaze.Objects;
+using System.Threading.Tasks;
+using System.Web.Http;
+using System.Web.Http.Results;
+using MoreLinq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Route = AllWaze.Objects.Route;
 
 namespace AllWaze.Handlers
 {
     public static class RoutesHandler
     {
         private const string R2RApiKey = "ZnzQK7bo";
+
+        public static async Task<string> EntryPoint(string origin, string dest, string currency)
+        {
+            var routes = ConstructRouteObjects(origin, dest, currency);
+            var message = ConstructJsonFromRoutes(routes, currency);
+
+            //var message = GetDescription(origin, dest);
+
+            await MessageHandler.SendCustomMessage(message);
+            return string.Empty;
+        }
 
         public static IEnumerable<Route> ConstructRouteObjects(string origin, string dest, string currency = "USD")
         {
@@ -28,6 +41,10 @@ namespace AllWaze.Handlers
             }
 
             var routes = (JArray)responseJson["routes"];
+            var places = (JArray) responseJson["places"];
+
+            var originLongName = places[0]["longName"];
+            var destLongName = places[1]["longName"];
 
             foreach (JObject route in routes)
             {
@@ -43,11 +60,29 @@ namespace AllWaze.Handlers
                     ? FetchAgencyImage(majorSegment, responseJson["agencies"] as JArray)
                     : FetchAirlineImage(majorSegment, responseJson["airlines"] as JArray);
 
-
-                routesList.Add(new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(image) && name.Contains("Drive") ? "http://i.imgur.com/PfC7OYk.jpg" : image));
+                pLow = pLow ?? 0;
+                pHigh = pHigh ?? 0;
+                int? price = 0;
+                if (pLow == 0 && pHigh == 0 && name.Equals("Drive"))
+                {
+                    price = indicativePrices != null ? (int?)indicativePrices[0]["price"] : 0;
+                }
+                var routeObject = new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(image) && name.Contains("Drive") ? "http://i.imgur.com/PfC7OYk.jpg" : image, price ?? 0);
+                routesList.Add(routeObject);
             }
 
-            return routesList.OrderBy(r => r.Duration).Take(Math.Min(routesList.Count, 6)); // Return maximum of 6 routes. 
+            var routeList = routesList.OrderBy(r => r.Duration).Take(Math.Min(routesList.Count, 6)).ToList();
+
+            var cheapestRoute = routesList.MinBy(x => x.Price);
+            cheapestRoute.IsCheapest = true;
+            var fastestRoute = routesList.MinBy(x => x.Duration);
+            fastestRoute.IsFastest = true;
+
+            if(!routesList.Contains(cheapestRoute)) routeList.Add(cheapestRoute);
+
+            MessageHandler.SendTextMessage($"I have found {routeList.Count} routes from {originLongName} to {destLongName}");
+
+            return routeList; // Returns maximum of 7 routes. 
         }
 
         #region Route Helper Methods
@@ -146,10 +181,28 @@ namespace AllWaze.Handlers
                 var priceHigh = route.PriceHigh.ToString("C0", new CultureInfo(currCulture));
                 var duration = FormatDuration(route.Duration);
 
+                var priceString = (route.PriceLow == 0 && route.PriceHigh == 0)
+                    ? route.Price.ToString("C0", new CultureInfo(currCulture))
+                    : $"{priceLow} - {priceHigh}";
+
+                var attribute = "";
+                if (route.IsFastest && route.IsCheapest)
+                {
+                    attribute = "\n🔥 Fastest 🔥 & 💲 Cheapest 💲 Route!";
+                }
+                else if (route.IsFastest)
+                {
+                    attribute = "\n🔥 Fastest Route! 🔥";
+                }
+                else if (route.IsCheapest)
+                {
+                    attribute = "\n💲 Cheapest Route! 💲";
+                }
+
                 var element = new JObject(
                     new JProperty("title", route.Name),
                     new JProperty("image_url", route.Image),
-                    new JProperty("subtitle", $"Price: {priceLow} - {priceHigh}\nDuration: {duration}"),
+                    new JProperty("subtitle", $"Price: {priceString} \nDuration: {duration}{attribute}"),
                     new JProperty("default_action", defaultAction),
                     new JProperty("buttons", buttons)
                 );
