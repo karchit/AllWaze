@@ -26,14 +26,25 @@ namespace AllWaze.Handlers
             if ((string) parsedPostBack["intent"] == "SegmentInfo")
             {
                 var userId = (string)parsedPostBack["recipient"]["id"];
-                var currency = new UserHandler().GetCurrency(userId);
+                var currency = new UserHandler().GetCurrency(userId) ?? "USD";
                 string currencyCulture;
                 Currency.currencies.TryGetValue(currency, out currencyCulture);
 
                 var origin = (string)parsedPostBack["origin"];
                 var dest = (string)parsedPostBack["destination"];
                 var routeName = (string)parsedPostBack["routeName"];
-                var segments = ConstructSegmentObjects(origin, dest, routeName, currency);
+                var location = (string)parsedPostBack["location"];
+
+                var oPos = false;
+                var dPos = false;
+                if (origin.Equals("here", StringComparison.InvariantCultureIgnoreCase) ||
+                    origin.Equals("my location", StringComparison.InvariantCultureIgnoreCase))
+                    oPos = true;
+                if (dest.Equals("here", StringComparison.InvariantCultureIgnoreCase) ||
+                    dest.Equals("my location", StringComparison.InvariantCultureIgnoreCase))
+                    dPos = true;
+
+                var segments = ConstructSegmentObjects(origin, dest, routeName, oPos, dPos, location, currency);
                 if (segments != null)
                 {
                     var message = ConstructSegmentJson(segments, currencyCulture);
@@ -51,7 +62,7 @@ namespace AllWaze.Handlers
             foreach (var segment in segmentList)
             {
                 var emoji = GetEmojiSegment(segment.Kind);
-                var name = segment.Name += emoji;
+                var name = segment.Name + emoji;
                 var priceLow = segment.PriceLow.ToString("C0", new CultureInfo(currency));
                 var priceHigh = segment.PriceHigh.ToString("C0", new CultureInfo(currency));
                 var duration = RoutesHandler.FormatDuration(segment.Duration);
@@ -169,9 +180,28 @@ namespace AllWaze.Handlers
             }
         }
 
-        public static IEnumerable<Segment> ConstructSegmentObjects(string origin, string dest, string routeName, string currency)
+        public static IEnumerable<Segment> ConstructSegmentObjects(string origin, string dest, string routeName, bool oPos, bool dPos, string location, string currency)
         {
-            var url = $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dName={dest}&currencyCode={currency}";
+            var geolocation = "";
+            var url = "";
+            if (oPos || dPos)
+            {
+                var user = new UserHandler().GetUser(MessageHandler.SenderId);
+                if (string.IsNullOrEmpty(location))
+                {
+                    MessageHandler.SendTextMessage(
+                        $"I am sorry there has been an error!");
+                    return null;
+                }
+                if (oPos)
+                    url =
+                        $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oPos={location}&dName={dest}&currencyCode={currency}";
+                if (dPos)
+                    url =
+                        $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dPos={location}&currencyCode={currency}";
+            }
+            url = string.IsNullOrEmpty(url) ? $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dName={dest}&currencyCode={currency}" : url;
+
             JObject responseJson;
 
             using (var client = new HttpClient())
@@ -267,7 +297,8 @@ namespace AllWaze.Handlers
             var pLow = indicativePrices != null ? (int?)indicativePrices[0]["priceLow"] : 0;
             var pHigh = indicativePrices != null ? (int?)indicativePrices[0]["priceHigh"] : 0;
             var agency = (JObject)((JArray)segment["agencies"]).ElementAt(0);
-            var kind = (string)(JObject)(vehicles.ElementAt((int)segment["vehicle"]))["kind"];
+            var vehicleJson = (JObject) vehicles.ElementAt((int) segment["vehicle"]);
+            var kind = (string)vehicleJson["kind"];
             var agencyJson = agencies.ElementAt((int)agency["agency"]);
             var links = segment["links"] as JArray;
             var bookUrl = "";
@@ -317,7 +348,8 @@ namespace AllWaze.Handlers
             var indicativePrices = segment["indicativePrices"] as JArray;
             var pLow = indicativePrices != null ? (int?)indicativePrices[0]["priceLow"] : 0;
             var pHigh = indicativePrices != null ? (int?)indicativePrices[0]["priceHigh"] : 0;
-            var kind = (string)(JObject)(vehicles.ElementAt((int)segment["vehicle"]))["kind"];
+            var vehicleJson = (JObject)vehicles.ElementAt((int)segment["vehicle"]);
+            var kind = (string)vehicleJson["kind"];
 
             var duration = (int)segment["transitDuration"] + (int)segment["transferDuration"];
             var distance = (double) segment["distance"];

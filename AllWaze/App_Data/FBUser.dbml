@@ -7,6 +7,7 @@
       <Column Name="DistanceUnit" Type="System.String" DbType="NChar(10)" CanBeNull="true" />
       <Column Name="SessionId" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
       <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="LocationString" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
     </Type>
   </Table>
 </Database>

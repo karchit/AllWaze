@@ -21,10 +21,24 @@ namespace AllWaze.Handlers
 
         public static async Task<string> EntryPoint(string origin, string dest, string currency)
         {
-            var routes = ConstructRouteObjects(origin, dest, currency);
+            bool oPos = false;
+            bool dPos = false;
+            if (origin.Equals("here", StringComparison.InvariantCultureIgnoreCase) ||
+                origin.Equals("my location", StringComparison.InvariantCultureIgnoreCase))
+                oPos = true;
+            if (dest.Equals("here", StringComparison.InvariantCultureIgnoreCase) ||
+                dest.Equals("my location", StringComparison.InvariantCultureIgnoreCase))
+                dPos = true;
+
+            if (oPos && dPos)
+            {
+                MessageHandler.SendTextMessage("You are searching between the same two points!");
+                return string.Empty;
+            }
+            var routes = ConstructRouteObjects(origin, dest, oPos, dPos, currency);
             if (routes != null)
             {
-                var message = ConstructJsonFromRoutes(routes, currency, origin, dest);
+                var message = ConstructJsonFromRoutes(routes, currency, origin, dest, oPos || dPos);
 
                 //var message = GetDescription(origin, dest);
 
@@ -32,14 +46,38 @@ namespace AllWaze.Handlers
             }
             else
             {
-                await MessageHandler.SendTextMessage("I am sorry I could not resolve your search query. Please check your response and try again");
+                if (!oPos && !dPos)
+                {
+                    await MessageHandler.SendTextMessage("I am sorry I could not resolve your search query. Please check your response and try again");
+                }
             }
             return string.Empty;
         }
 
-        public static IEnumerable<Route> ConstructRouteObjects(string origin, string dest, string currency = "USD")
+        public static IEnumerable<Route> ConstructRouteObjects(string origin, string dest, bool oPos, bool dPos, string currency = "USD")
         {
-            var url = $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dName={dest}&currencyCode={currency}";
+            var geolocation = "";
+            var address = "";
+            var url = "";
+            if (oPos || dPos)
+            {
+                var user = new UserHandler().GetUser(MessageHandler.SenderId);
+                geolocation = user.Location;
+                address = user.LocationString;
+                if (string.IsNullOrEmpty(geolocation) || string.IsNullOrEmpty(address))
+                {
+                    MessageHandler.SendTextMessage(
+                        $"I am sorry, I do not know your current location. Please send it via Messenger");
+                    return null;
+                }
+                if (oPos)
+                    url =
+                        $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oPos={geolocation}&dName={dest}&currencyCode={currency}";
+                if (dPos)
+                    url =
+                        $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dPos={geolocation}&currencyCode={currency}";
+            }
+            url = string.IsNullOrEmpty(url) ? $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dName={dest}&currencyCode={currency}" : url;
             var routesList = new List<Route>();
             JObject responseJson;
 
@@ -97,8 +135,23 @@ namespace AllWaze.Handlers
             fastestRoute.IsFastest = true;
 
             if(!routesList.Contains(cheapestRoute)) routeList.Add(cheapestRoute);
+            if (oPos)
+            {
+                MessageHandler.SendTextMessage(
+                    $"I have found {routeList.Count} routes from {address} to {destLongName}");
+            }
+            else if (dPos)
+            {
+                MessageHandler.SendTextMessage(
+                    $"I have found {routeList.Count} routes from {originLongName} to {address}");
 
-            MessageHandler.SendTextMessage($"I have found {routeList.Count} routes from {originLongName} to {destLongName}");
+            }
+            else
+            {
+                MessageHandler.SendTextMessage(
+                    $"I have found {routeList.Count} routes from {originLongName} to {destLongName}");
+
+            }
 
             return routeList; // Returns maximum of 7 routes. 
         }
@@ -136,6 +189,8 @@ namespace AllWaze.Handlers
             {
                 case "hyperdia.com":
                     return "https://japabanchel.files.wordpress.com/2015/06/hyperdia-portada.jpg";
+                case "sydneytrains.info":
+                    return "https://media.licdn.com/mpr/mpr/shrink_200_200/AAEAAQAAAAAAAAhpAAAAJGM2M2VlNGIxLTdmZjgtNDRjMS05NDZkLTE5OWQ5ODRmMWQ1Mg.png";
                 default:
                     return string.Empty;
 
@@ -195,7 +250,7 @@ namespace AllWaze.Handlers
         
         #endregion
 
-        public static string ConstructJsonFromRoutes(IEnumerable<Route> routes, string currCulture, string origin, string dest)
+        public static string ConstructJsonFromRoutes(IEnumerable<Route> routes, string currCulture, string origin, string dest, bool isHere)
         {
             var routesList = routes.ToList();
 
@@ -219,6 +274,8 @@ namespace AllWaze.Handlers
                 payLoad.origin = origin;
                 payLoad.destination = dest;
                 payLoad.routeName = route.Name;
+                payLoad.location = new UserHandler().GetUser(MessageHandler.SenderId).Location;
+                
                 var p = payLoad.ToString();
 
                 //var p = $"\"payload\":{{\"recipient\" : {{\"id\" : \"{{{MessageHandler.SenderId}}}\"}},\"intent\":\"SegmentInfo\", \"origin\":\"{origin}\", \"destination\":\"{dest}\", \"routeName\":\"{route.Name}\"}}";

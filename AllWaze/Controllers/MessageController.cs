@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data.SqlTypes;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -56,6 +57,19 @@ namespace AllWaze.Controllers
                     if (eve["postback"] != null)
                     {
                         PostbackHandler.EntryPoint(eve["postback"]["payload"]);
+                    }
+                    else if (eve["message"]["attachments"] != null)
+                    {
+                        if ((string)eve["message"]["attachments"][0]["type"] == "location")
+                        {
+                            var id = (string) eve["sender"]["id"];
+                            var coords = eve["message"]["attachments"][0]["payload"]["coordinates"];
+                            var lng = (double) coords["long"];
+                            var lat = (double) coords["lat"];
+
+                            LocationsHandler.UpdateUserLocation(id, $"{lat},{lng}");
+                        }
+
                     }
                     else
                     {

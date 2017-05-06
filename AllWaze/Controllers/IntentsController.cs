@@ -30,7 +30,7 @@ namespace AllWaze.Controllers
             {
                 var origin = (string)parameters["origin"];
                 var dest = (string)parameters["destination"];
-                var currency = userHandler.GetCurrency(userId);
+                var currency = userHandler.GetCurrency(userId) ?? "USD";
                 string currencyCulture;
                 Currency.currencies.TryGetValue(currency, out currencyCulture);
 
@@ -45,11 +45,20 @@ namespace AllWaze.Controllers
                 var newCurrency = userHandler.SetCurrency(userId, currency);
 
                 var message = !string.IsNullOrEmpty(newCurrency)
-                    ? $"Currency updated to {newCurrency}"
+                    ? $"Currency updated to {newCurrency} ({Currency.CurrencyNames[newCurrency]})"
                     : $"Sorry but {currency} is not currently supported :/. Try again with another one.";
 
                 MessageHandler.SendTextMessage(message);
                 
+                return Ok();
+
+            }
+            else if ((string)json.result.action == "showSaved")
+            {
+                var attr = (string)parameters["attr"];
+
+                ShowHandler.EntryPoint(userId, attr);
+
                 return Ok();
 
             }

@@ -112,6 +112,8 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="Handlers\ShowHandler.cs" />
+    <Compile Include="Handlers\LocationsHandler.cs" />
     <Compile Include="Handlers\PostbackHandler.cs" />
     <Compile Include="Handlers\MessageHandler.cs" />
     <Compile Include="Handlers\RoutesHandler.cs" />

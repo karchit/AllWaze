@@ -90,6 +90,8 @@ namespace AllWaze.App_Data
 		
 		private int _ID;
 		
+		private string _LocationString;
+		
     #region Extensibility Method Definitions
     partial void OnLoaded();
     partial void OnValidate(System.Data.Linq.ChangeAction action);
@@ -104,6 +106,8 @@ namespace AllWaze.App_Data
     partial void OnSessionIdChanged();
     partial void OnIDChanging(int value);
     partial void OnIDChanged();
+    partial void OnLocationStringChanging(string value);
+    partial void OnLocationStringChanged();
     #endregion
 		
 		public FBUser()
@@ -207,6 +211,26 @@ namespace AllWaze.App_Data
 					this._ID = value;
 					this.SendPropertyChanged("ID");
 					this.OnIDChanged();
+				}
+			}
+		}
+		
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_LocationString", DbType="NVarChar(50)")]
+		public string LocationString
+		{
+			get
+			{
+				return this._LocationString;
+			}
+			set
+			{
+				if ((this._LocationString != value))
+				{
+					this.OnLocationStringChanging(value);
+					this.SendPropertyChanging();
+					this._LocationString = value;
+					this.SendPropertyChanged("LocationString");
+					this.OnLocationStringChanged();
 				}
 			}
 		}

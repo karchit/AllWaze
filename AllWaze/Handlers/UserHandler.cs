@@ -6,7 +6,7 @@ namespace AllWaze.Handlers
 {
     public class UserHandler
     {
-        private readonly FBUserDataContext _db = new FBUserDataContext();
+        public readonly FBUserDataContext _db = new FBUserDataContext();
 
         public void InsertUser(string id)
         {
@@ -45,5 +45,6 @@ namespace AllWaze.Handlers
             var user = GetUser(id);
             return user != null ? user.Currency : "USD";
         }
+
     }
 }
