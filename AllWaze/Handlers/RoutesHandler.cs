@@ -191,6 +191,15 @@ namespace AllWaze.Handlers
                     return "https://japabanchel.files.wordpress.com/2015/06/hyperdia-portada.jpg";
                 case "sydneytrains.info":
                     return "https://media.licdn.com/mpr/mpr/shrink_200_200/AAEAAQAAAAAAAAhpAAAAJGM2M2VlNGIxLTdmZjgtNDRjMS05NDZkLTE5OWQ5ODRmMWQ1Mg.png";
+                case "anm.it":
+                    return "http://www.ecotradingsrl.it/wp-content/uploads/2013/05/anm-300x212.png";
+                case "b-rail.be":
+                    return "http://www.uic.org/com/IMG/png/SNCB.png";
+                case "ptv.vic.gov.au":
+                    return "http://cdn.macworld.com.au/wp-content/uploads/2015/03/PTV-apps-macworld-australia.jpg";
+                case "fireflyexpress.com.au":
+                    return
+                        "http://www.papawheelie.com.au/media_uploads/firefly-thumb-db173aa2f8b65d17293353d21605ccbd.jpg";
                 default:
                     return string.Empty;
 
