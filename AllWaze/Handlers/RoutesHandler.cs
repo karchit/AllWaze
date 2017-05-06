@@ -134,7 +134,7 @@ namespace AllWaze.Handlers
             var fastestRoute = routesList.MinBy(x => x.Duration);
             fastestRoute.IsFastest = true;
 
-            if(!routesList.Contains(cheapestRoute)) routeList.Add(cheapestRoute);
+            if(!routeList.Contains(cheapestRoute)) routeList.Add(cheapestRoute);
             if (oPos)
             {
                 MessageHandler.SendTextMessage(
