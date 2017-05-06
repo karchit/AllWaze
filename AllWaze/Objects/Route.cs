@@ -12,11 +12,13 @@ namespace AllWaze.Objects
         public int PriceHigh { get; set; }
         public int Price { get; set; }
         public int Duration { get; set; }
+        public string AgencyName { get; set; }
         public string Image { get; set; }
         public bool IsFastest { get; set; }
         public bool IsCheapest { get; set; }
+        public bool IsAirline { get; set; }
 
-        public Route(string name, int pLow, int pHigh, int duration, string image, int p = 0)
+        public Route(string name, int pLow, int pHigh, int duration, string image, string agencyName, bool isAirline, int p = 0)
         {
             this.Name = name;
             if (this.Name.IndexOf("fly", StringComparison.CurrentCultureIgnoreCase) >= 0) Name += " ✈️";
@@ -28,8 +30,10 @@ namespace AllWaze.Objects
             this.Price = p == 0 ? (PriceLow + PriceHigh)/2 : p;
             this.Duration = duration;
             this.Image = image;
+            this.AgencyName = agencyName;
             this.IsFastest = false;
             this.IsCheapest = false;
+            this.IsAirline = isAirline;
         }
     }
 }

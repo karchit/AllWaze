@@ -56,18 +56,20 @@ namespace AllWaze.Handlers
                 var pHigh = indicativePrices != null ? (int?)indicativePrices[0]["priceHigh"] : 0;
                 var duration = (int)route["totalDuration"];
 
-                var image = ((string)majorSegment["segmentKind"]).Equals("surface")
+                var agencyTuple = ((string)majorSegment["segmentKind"]).Equals("surface")
                     ? FetchAgencyImage(majorSegment, responseJson["agencies"] as JArray)
                     : FetchAirlineImage(majorSegment, responseJson["airlines"] as JArray);
+                var agencyName = agencyTuple.Item1;
+                var agencyImage = agencyTuple.Item2;
 
                 pLow = pLow ?? 0;
                 pHigh = pHigh ?? 0;
                 int? price = 0;
-                if (pLow == 0 && pHigh == 0 && name.Equals("Drive"))
+                if (pLow == 0 && pHigh == 0)
                 {
                     price = indicativePrices != null ? (int?)indicativePrices[0]["price"] : 0;
                 }
-                var routeObject = new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(image) && name.Contains("Drive") ? "http://i.imgur.com/PfC7OYk.jpg" : image, price ?? 0);
+                var routeObject = new Route(name, pLow ?? 0, pHigh ?? 0, duration, string.IsNullOrEmpty(agencyImage) && name.Contains("Drive") ? "http://i.imgur.com/PfC7OYk.jpg" : agencyImage, string.IsNullOrEmpty(agencyName) && name.Contains("Drive") ? "Self-Drive" : agencyName, !((string)majorSegment["segmentKind"]).Equals("surface"), price ?? 0);
                 routesList.Add(routeObject);
             }
 
@@ -87,14 +89,17 @@ namespace AllWaze.Handlers
 
         #region Route Helper Methods
 
-        private static string FetchAgencyImage(JObject majorSegment, JArray agencies)
+        private static Tuple<string, string> FetchAgencyImage(JObject majorSegment, JArray agencies)
         {
             var segmentAgencies = majorSegment["agencies"] as JArray;
-            if (segmentAgencies == null) return string.Empty;
+            if (segmentAgencies == null) return new Tuple<string, string>(string.Empty, string.Empty);
 
             var index = (int)segmentAgencies.ElementAt(0)["agency"];
+            var agencyName = (string)agencies.ElementAt(index)["name"];
             var agencyUrl = new Uri((string)agencies.ElementAt(index)["url"]).Host.Replace("www.", "");
             agencyUrl = FixAgencyUrls(agencyUrl);
+            var fixedUrl = ClearbitNoLogo(agencyUrl);
+            if(!string.IsNullOrWhiteSpace(fixedUrl)) return new Tuple<string, string>(agencyName, fixedUrl);
 
             using (var client = new WebClient())
             {
@@ -102,9 +107,21 @@ namespace AllWaze.Handlers
 
                 var companiesArray = JArray.Parse(client.DownloadString(url));
 
-                return companiesArray.Any()
+                return new Tuple<string, string>(agencyName, companiesArray.Any()
                     ? (string)companiesArray[0]["logo"] + "?size=220"
-                    : "www.rome2rio.com/" + (string)agencies.ElementAt(index)["icon"]["url"];
+                    : "www.rome2rio.com/" + (string)agencies.ElementAt(index)["icon"]["url"]);
+
+            }
+        }
+
+        private static string ClearbitNoLogo(string agencyUrl)
+        {
+            switch(agencyUrl)
+            {
+                case "hyperdia.com":
+                    return "https://japabanchel.files.wordpress.com/2015/06/hyperdia-portada.jpg";
+                default:
+                    return string.Empty;
 
             }
         }
@@ -122,7 +139,7 @@ namespace AllWaze.Handlers
             }
         }
 
-        private static string FetchAirlineImage(JObject majorSegment, JArray airlines)
+        private static Tuple<string, string> FetchAirlineImage(JObject majorSegment, JArray airlines)
         {
             var hops = (JArray)((JArray)majorSegment["outbound"]).ElementAt(0)["hops"];
             var index = (int)hops.ElementAt(0)["airline"];
@@ -130,15 +147,15 @@ namespace AllWaze.Handlers
             var airlineCode = (string)airlines.ElementAt(index)["code"];
 
             var fixedUrl = FixAirlineUrls(airlineCode);
-            if (!string.IsNullOrEmpty(fixedUrl)) return fixedUrl;
+            if (!string.IsNullOrEmpty(fixedUrl)) return new Tuple<string, string>(airlineName, fixedUrl);
 
             using (var client = new WebClient())
             {
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
                 var companiesArray = JArray.Parse(client.DownloadString($"https://autocomplete.clearbit.com/v1/companies/suggest?query={airlineName}"));
-                return companiesArray.Any()
+                return new Tuple<string, string>(airlineName, companiesArray.Any()
                     ? (string)companiesArray[0]["logo"] + "?size=220"
-                    : $"http://pics.avs.io/200/200/{airlineCode}.png";
+                    : $"http://pics.avs.io/200/200/{airlineCode}.png");
 
             }
         }
@@ -151,6 +168,10 @@ namespace AllWaze.Handlers
                     return "http://www.kongresniturizam.com/Media/uploads/avio_kompanije/23/logo.png";
                 case "TT":
                     return "https://pbs.twimg.com/profile_images/605039566593007616/JyE-Rr_W.jpg";
+                case "UA":
+                    return "https://lunardream.files.wordpress.com/2012/01/continental-airlines-inc.png";
+                case "QF":
+                    return "https://logo.clearbit.com/qantas.com?size=220";
                 default:
                     return string.Empty;
             }
@@ -188,7 +209,7 @@ namespace AllWaze.Handlers
                 var attribute = "";
                 if (route.IsFastest && route.IsCheapest)
                 {
-                    attribute = "\n🔥 Fastest 🔥 & 💲 Cheapest 💲 Route!";
+                    attribute = "\n🔥 Fastest & Cheapest 💲 Route!";
                 }
                 else if (route.IsFastest)
                 {
@@ -199,10 +220,24 @@ namespace AllWaze.Handlers
                     attribute = "\n💲 Cheapest Route! 💲";
                 }
 
+                string agencyName;
+                if (route.AgencyName.Equals("Self-Drive"))
+                {
+                    agencyName = "Self-Drive";
+                }
+                else if (route.IsAirline)
+                {
+                    agencyName = "Airline: " + route.AgencyName.Replace("Airways", "").Trim();
+                }
+                else
+                {
+                    agencyName = "Agency: " + route.AgencyName;
+                }
+
                 var element = new JObject(
                     new JProperty("title", route.Name),
                     new JProperty("image_url", route.Image),
-                    new JProperty("subtitle", $"Price: {priceString} \nDuration: {duration}{attribute}"),
+                    new JProperty("subtitle", $"{agencyName}\nPrice: {priceString} \nDuration: {duration}{attribute}"),
                     new JProperty("default_action", defaultAction),
                     new JProperty("buttons", buttons)
                 );
