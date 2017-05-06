@@ -23,17 +23,6 @@ namespace AllWaze.Objects
         public Route(string name, int pLow, int pHigh, int duration, string image, string agencyName, bool isAirline, int p = 0)
         {
             this.Name = name;
-            var emojiDictionary = FindIndexes(this.Name, "fly").ToDictionary(index => index, index => "✈️");
-            foreach(var index in FindIndexes(this.Name, "train")) emojiDictionary.Add(index, "🚆");
-            foreach(var index in FindIndexes(this.Name, "bus")) emojiDictionary.Add(index, "🚌");
-            foreach(var index in FindIndexes(this.Name, "drive")) emojiDictionary.Add(index, "🚗");
-            foreach(var index in FindIndexes(this.Name, "ferry")) emojiDictionary.Add(index, "⛴️");
-            foreach(var index in FindIndexes(this.Name, "taxi")) emojiDictionary.Add(index, "🚕");
-
-            var sorted = from entry in emojiDictionary orderby entry.Key ascending select entry;
-            foreach (var entry in sorted) this.Name += " " + entry.Value;
-            this.Name = this.Name.Trim();
-
             this.PriceLow = pLow;
             this.PriceHigh = pHigh;
             this.Price = p == 0 ? (PriceLow + PriceHigh)/2 : p;
@@ -56,15 +45,6 @@ namespace AllWaze.Objects
 
             // Return true if the fields match:
             return (Name == route.Name);
-        }
-
-        private static IEnumerable<int> FindIndexes(string text, string query)
-        {
-            query = Regex.Escape(query);
-            foreach (Match match in Regex.Matches(text, query, RegexOptions.IgnoreCase))
-            {
-                yield return match.Index;
-            }
         }
     }
 }

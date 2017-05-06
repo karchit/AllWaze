@@ -23,7 +23,7 @@ namespace AllWaze.Controllers
             dynamic json = JsonConvert.DeserializeObject(body);
 
             var parameters = json.result.parameters;
-            var userId = (string)json.sessionId;
+            var userId = MessageHandler.SenderId;
             var userHandler = new UserHandler();
 
             if ((string) json.result.action == "routes")

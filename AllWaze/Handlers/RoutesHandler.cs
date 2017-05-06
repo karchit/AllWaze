@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.Results;
@@ -20,11 +22,18 @@ namespace AllWaze.Handlers
         public static async Task<string> EntryPoint(string origin, string dest, string currency)
         {
             var routes = ConstructRouteObjects(origin, dest, currency);
-            var message = ConstructJsonFromRoutes(routes, currency);
+            if (routes != null)
+            {
+                var message = ConstructJsonFromRoutes(routes, currency, origin, dest);
 
-            //var message = GetDescription(origin, dest);
+                //var message = GetDescription(origin, dest);
 
-            await MessageHandler.SendCustomMessage(message);
+                await MessageHandler.SendCustomMessage(message);
+            }
+            else
+            {
+                await MessageHandler.SendTextMessage("I am sorry I could not resolve your search query. Please check your response and try again");
+            }
             return string.Empty;
         }
 
@@ -34,10 +43,17 @@ namespace AllWaze.Handlers
             var routesList = new List<Route>();
             JObject responseJson;
 
-            using (var client = new WebClient())
+            using (var client = new HttpClient())
             {
-                var response = client.DownloadString(url);
-                responseJson = JObject.Parse(response);
+                var response = client.GetAsync(url);
+                if (response.Result.IsSuccessStatusCode)
+                {
+                    responseJson = JObject.Parse(response.Result.Content.ReadAsStringAsync().Result);
+                }
+                else
+                {
+                    return null;
+                }
             }
 
             var routes = (JArray)responseJson["routes"];
@@ -89,7 +105,7 @@ namespace AllWaze.Handlers
 
         #region Route Helper Methods
 
-        private static Tuple<string, string> FetchAgencyImage(JObject majorSegment, JArray agencies)
+        public static Tuple<string, string> FetchAgencyImage(JObject majorSegment, JArray agencies)
         {
             var segmentAgencies = majorSegment["agencies"] as JArray;
             if (segmentAgencies == null) return new Tuple<string, string>(string.Empty, string.Empty);
@@ -139,7 +155,7 @@ namespace AllWaze.Handlers
             }
         }
 
-        private static Tuple<string, string> FetchAirlineImage(JObject majorSegment, JArray airlines)
+        public static Tuple<string, string> FetchAirlineImage(JObject majorSegment, JArray airlines)
         {
             var hops = (JArray)((JArray)majorSegment["outbound"]).ElementAt(0)["hops"];
             var index = (int)hops.ElementAt(0)["airline"];
@@ -179,25 +195,47 @@ namespace AllWaze.Handlers
         
         #endregion
 
-        public static string ConstructJsonFromRoutes(IEnumerable<Route> routes, string currCulture)
+        public static string ConstructJsonFromRoutes(IEnumerable<Route> routes, string currCulture, string origin, string dest)
         {
             var routesList = routes.ToList();
 
             var elementsJson = new JArray();
             foreach (var route in routesList)
             {
-                var defaultAction = new JObject(
-                    new JProperty("type", "web_url"),
-                    new JProperty("url", "https://www.rome2rio.com"),
-                    new JProperty("webview_height_ratio", "compact")
-                );
+                //var payLoad = new JObject(
+                //    new JObject("recipient", new JProperty("id", MessageHandler.SenderId)),
+                //    new JProperty("intent", "SegmentInfo"),
+                //    new JProperty("origin", origin),
+                //    new JProperty("destination", dest),
+                //    new JProperty("routeName", route.Name)
+                //);
 
-                var buttons = new JArray
-                {
-                    new JObject(new JProperty("type", "web_url"),
-                    new JProperty("url", "https://www.rome2rio.com"),
-                    new JProperty("title", "View Website"))
-                };
+                dynamic recipient = new JObject();
+                recipient.id = MessageHandler.SenderId;
+
+                dynamic payLoad = new JObject();
+                payLoad.recipient = recipient;
+                payLoad.intent = "SegmentInfo";
+                payLoad.origin = origin;
+                payLoad.destination = dest;
+                payLoad.routeName = route.Name;
+                var p = payLoad.ToString();
+
+                //var p = $"\"payload\":{{\"recipient\" : {{\"id\" : \"{{{MessageHandler.SenderId}}}\"}},\"intent\":\"SegmentInfo\", \"origin\":\"{origin}\", \"destination\":\"{dest}\", \"routeName\":\"{route.Name}\"}}";
+                var buttons = new JArray(
+                    new JObject(new JProperty("type", "postback"),
+                    new JProperty("title", "View More Info"),
+                    new JProperty("payload", p))
+                    );
+                //var buttons = new JArray
+                //{
+                //    new JProperty("type", "postback"),
+                //    new JProperty("title", "View More Info"),
+                //    new JProperty("payload", p)
+                //};
+
+                route.Name = AddEmojiToName(route.Name);
+
                 var priceLow = route.PriceLow.ToString("C0", new CultureInfo(currCulture));
                 var priceHigh = route.PriceHigh.ToString("C0", new CultureInfo(currCulture));
                 var duration = FormatDuration(route.Duration);
@@ -238,7 +276,7 @@ namespace AllWaze.Handlers
                     new JProperty("title", route.Name),
                     new JProperty("image_url", route.Image),
                     new JProperty("subtitle", $"{agencyName}\nPrice: {priceString} \nDuration: {duration}{attribute}"),
-                    new JProperty("default_action", defaultAction),
+                    //new JProperty("default_action", defaultAction),
                     new JProperty("buttons", buttons)
                 );
 
@@ -263,7 +301,7 @@ namespace AllWaze.Handlers
             return returnJson.ToString(Formatting.None);
         }
 
-        private static string FormatDuration(int duration)
+        public static string FormatDuration(int duration)
         {
             var numHours = duration/60;
             var numMinutes = duration - (numHours*60);
@@ -277,5 +315,30 @@ namespace AllWaze.Handlers
 
             return $"{dayString}{dhSpaceString}{hourString}{hmSpaceString}{minuteString}";
         }
+
+        private static string AddEmojiToName(string name)
+        {
+            var emojiDictionary = FindIndexes(name, "fly").ToDictionary(index => index, index => "✈️");
+            foreach (var index in FindIndexes(name, "train")) emojiDictionary.Add(index, "🚆");
+            foreach (var index in FindIndexes(name, "bus")) emojiDictionary.Add(index, "🚌");
+            foreach (var index in FindIndexes(name, "drive")) emojiDictionary.Add(index, "🚗");
+            foreach (var index in FindIndexes(name, "ferry")) emojiDictionary.Add(index, "⛴️");
+            foreach (var index in FindIndexes(name, "taxi")) emojiDictionary.Add(index, "🚕");
+
+            var sorted = from entry in emojiDictionary orderby entry.Key ascending select entry;
+            name = sorted.Aggregate(name, (current, entry) => current + (" " + entry.Value));
+
+            return name;
+        }
+
+        private static IEnumerable<int> FindIndexes(string text, string query)
+        {
+            query = Regex.Escape(query);
+            foreach (Match match in Regex.Matches(text, query, RegexOptions.IgnoreCase))
+            {
+                yield return match.Index;
+            }
+        }
+
     }
 }

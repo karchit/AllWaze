@@ -16,7 +16,6 @@ namespace AllWaze.Controllers
     [Route("")]
     public class MessageController : ApiController
     {
-        private const string PageToken = "EAAEZCJ5a9RvkBAOimeVfFotC57ZC67x0e6gXVqfRqejNtzmaPMgvnhFgZCE8ZBqqbKC1qhE2uRvPcdlqdBlqlZCMFjQbpwZCdaV0JugAggp5fzZAITlodw83kMBJMs3sTpng8aTCcZBvNpQvNcF8aOcN056mxZChXMbhpkClovNktBQZDZD";
         private static readonly AIConfiguration Config = new AIConfiguration("b889778ac1e84e2885120a47fdec9809", SupportedLanguage.English);
         private static readonly ApiAi ApiAi = new ApiAi(Config);
 
@@ -51,10 +50,17 @@ namespace AllWaze.Controllers
 
             foreach (dynamic entry in (JArray)x.entry)
             {
-                foreach (dynamic eve in (JArray)entry.messaging)
+                foreach (JObject eve in (JArray)entry.messaging)
                 {
-                    await MessageHandler.SendTypingNotification((string) eve.sender.id);
-                    await SendMessage((string)eve.message.text, (string)eve.sender.id);
+                    await MessageHandler.SendTypingNotification((string)eve["sender"]["id"]);
+                    if (eve["postback"] != null)
+                    {
+                        PostbackHandler.EntryPoint(eve["postback"]["payload"]);
+                    }
+                    else
+                    {
+                        await SendMessage((string) eve["message"]["text"], (string) eve["sender"]["id"]);
+                    }
                 }
 
             }

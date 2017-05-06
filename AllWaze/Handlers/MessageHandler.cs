@@ -41,6 +41,7 @@ namespace AllWaze.Handlers
             using (var client = new HttpClient())
             {
                 var response = await client.PostAsync(MessageEndPoint, content);
+                response.EnsureSuccessStatusCode();
             }
         }
 
