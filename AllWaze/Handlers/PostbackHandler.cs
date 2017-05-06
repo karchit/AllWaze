@@ -50,7 +50,8 @@ namespace AllWaze.Handlers
 
             foreach (var segment in segmentList)
             {
-                var name = segment.Name;
+                var emoji = GetEmojiSegment(segment.Kind);
+                var name = segment.Name += emoji;
                 var priceLow = segment.PriceLow.ToString("C0", new CultureInfo(currency));
                 var priceHigh = segment.PriceHigh.ToString("C0", new CultureInfo(currency));
                 var duration = RoutesHandler.FormatDuration(segment.Duration);
@@ -142,6 +143,32 @@ namespace AllWaze.Handlers
             return returnJson.ToString(Formatting.None);
         }
 
+        private static string GetEmojiSegment(string kind)
+        {
+            switch (kind)
+            {
+                //"unknown, plane, helicopter, car, bus, taxi, rideshare, shuttle, towncar, train, tram, cablecar, subway, ferry, foot, animal, bicycle"
+                case "subway":
+                case "train":
+                    return "🚆";
+                case "plane":
+                    return"✈️";
+                case "car":
+                    return "🚗";
+                case "bus":
+                case "shuttle":
+                    return "🚌";
+                case "ferry":
+                    return "⛴️";
+                case "bicycle":
+                    return "🚲";
+                case "foot":
+                    return "🚶";
+                default:
+                    return "";
+            }
+        }
+
         public static IEnumerable<Segment> ConstructSegmentObjects(string origin, string dest, string routeName, string currency)
         {
             var url = $"http://free.rome2rio.com/api/1.4/json/Search?key={R2RApiKey}&oName={origin}&dName={dest}&currencyCode={currency}";
@@ -164,6 +191,7 @@ namespace AllWaze.Handlers
             var places = (JArray)responseJson["places"];
             var agencies = (JArray)responseJson["agencies"];
             var airlines = (JArray)responseJson["airlines"];
+            var vehicles = (JArray)responseJson["vehicles"];
 
             var originLongName = places[0]["longName"];
             var destLongName = places[1]["longName"];
@@ -177,7 +205,7 @@ namespace AllWaze.Handlers
                 foreach (JObject segment in route["segments"])
                 {
                     var kind = (string)segment["segmentKind"];
-                    segmentList.Add(kind == "surface" ? HandleSurfaceSegment(segment, agencies, places) : HandleAirSegment(segment, airlines, places));
+                    segmentList.Add(kind == "surface" ? HandleSurfaceSegment(segment, agencies, places, vehicles) : HandleAirSegment(segment, airlines, places, vehicles));
                 }
             }
 
@@ -233,12 +261,13 @@ namespace AllWaze.Handlers
             }
         }
 
-        public static Segment HandleSurfaceSegment(JObject segment, JArray agencies, JArray places)
+        public static Segment HandleSurfaceSegment(JObject segment, JArray agencies, JArray places, JArray vehicles)
         {
             var indicativePrices = segment["indicativePrices"] as JArray;
             var pLow = indicativePrices != null ? (int?)indicativePrices[0]["priceLow"] : 0;
             var pHigh = indicativePrices != null ? (int?)indicativePrices[0]["priceHigh"] : 0;
             var agency = (JObject)((JArray)segment["agencies"]).ElementAt(0);
+            var kind = (string)(JObject)(vehicles.ElementAt((int)segment["vehicle"]))["kind"];
             var agencyJson = agencies.ElementAt((int)agency["agency"]);
             var links = segment["links"] as JArray;
             var bookUrl = "";
@@ -280,14 +309,15 @@ namespace AllWaze.Handlers
                 price = indicativePrices != null ? (int?)indicativePrices[0]["price"] : 0;
             }
 
-            return new SurfaceSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, image.Item2, defaultUrl, bookUrl, scheUrl, phone, "", price ?? 0);
+            return new SurfaceSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, image.Item2, defaultUrl, bookUrl, scheUrl, phone, "", kind, price ?? 0);
         }
 
-        private static Segment HandleAirSegment(JObject segment, JArray airlines, JArray places)
+        private static Segment HandleAirSegment(JObject segment, JArray airlines, JArray places, JArray vehicles)
         {
             var indicativePrices = segment["indicativePrices"] as JArray;
             var pLow = indicativePrices != null ? (int?)indicativePrices[0]["priceLow"] : 0;
             var pHigh = indicativePrices != null ? (int?)indicativePrices[0]["priceHigh"] : 0;
+            var kind = (string)(JObject)(vehicles.ElementAt((int)segment["vehicle"]))["kind"];
 
             var duration = (int)segment["transitDuration"] + (int)segment["transferDuration"];
             var distance = (double) segment["distance"];
@@ -306,7 +336,7 @@ namespace AllWaze.Handlers
                 price = indicativePrices != null ? (int?)indicativePrices[0]["price"] : 0;
             }
 
-            return new AirSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, distance, image, "", price ?? 0);
+            return new AirSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, distance, image, "", kind, price ?? 0);
         }
 
 

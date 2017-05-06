@@ -18,8 +18,9 @@ namespace AllWaze.Objects
         public int Price { get; set; }
         public int Duration { get; set; }
         public string MapUrl  { get; set; }
+        public string Kind  { get; set; }
 
-        public Segment(string name, string from, string to, int pLow, int pHigh, int duration, string image, string mapUrl, int p = 0)
+        public Segment(string name, string from, string to, int pLow, int pHigh, int duration, string image, string mapUrl, string kind, int p = 0)
         {
             this.Name = name;
             this.From = from;
@@ -30,6 +31,7 @@ namespace AllWaze.Objects
             this.Duration = duration;
             this.Image = image;
             this.MapUrl = mapUrl;
+            this.Kind = kind;
 
         }
 

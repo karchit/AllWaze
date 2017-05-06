@@ -11,8 +11,8 @@ namespace AllWaze.Objects
     {
         public double Distance { get; set; }
 
-        public AirSegment(string name, string from, string to, int pLow, int pHigh, int duration, double distance, string image, string mapUrl, int p = 0) 
-            : base(name, from, to, pLow, pHigh, duration, image, mapUrl, p)
+        public AirSegment(string name, string from, string to, int pLow, int pHigh, int duration, double distance, string image, string mapUrl, string kind, int p = 0) 
+            : base(name, from, to, pLow, pHigh, duration, image, mapUrl, kind, p)
         {
             this.Distance = distance;
         }

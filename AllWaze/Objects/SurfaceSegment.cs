@@ -14,8 +14,8 @@ namespace AllWaze.Objects
         public string ScheduleUrl { get; set; }
         public string PhoneNumber { get; set; }
 
-        public SurfaceSegment(string name, string from, string to, int pLow, int pHigh, int duration, string image, string defaultUrl, string bookUrl, string scheduleUrl, string phoneNumber, string mapUrl, int p = 0) 
-            : base(name, from, to, pLow, pHigh, duration, image, mapUrl, p)
+        public SurfaceSegment(string name, string from, string to, int pLow, int pHigh, int duration, string image, string defaultUrl, string bookUrl, string scheduleUrl, string phoneNumber, string mapUrl, string kind, int p = 0) 
+            : base(name, from, to, pLow, pHigh, duration, image, mapUrl, kind, p)
         {
             this.DefaultUrl = defaultUrl;
             this.BookUrl = bookUrl;
