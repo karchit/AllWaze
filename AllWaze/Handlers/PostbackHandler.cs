@@ -411,7 +411,7 @@ namespace AllWaze.Handlers
                 price = indicativePrices != null ? (int?)indicativePrices[0]["price"] : 0;
             }
 
-            return new AirSegment(segName, from, to, pLow ?? 0, pHigh ?? 0, duration, distance, image, "", kind, price ?? 0);
+            return new AirSegment(segName, from, to, (int) pLow, (int) pHigh, duration, distance, image, "", kind, price ?? 0);
         }
 
 

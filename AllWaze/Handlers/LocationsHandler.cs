@@ -1,15 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net;
 using AllWaze.App_Data;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Route = AllWaze.Objects.Route;
 
 namespace AllWaze.Handlers
 {
@@ -49,7 +40,7 @@ namespace AllWaze.Handlers
                 user.Location = location;
                 db._db.SubmitChanges();
             }
-            MessageHandler.SendTextMessage($"Location updated to {location} or you may be better know it as {address} :D");
+            MessageHandler.SendTextMessage($"Location updated to {location}. Although, you may better know it as {address} :D");
         }
 
 
